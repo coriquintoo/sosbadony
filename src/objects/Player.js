@@ -5,9 +5,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.setCollideWorldBounds(true);
-    // Slightly narrower/taller body centered in the sprite for more reliable platform landing.
-    this.setSize(18, 24);
-    this.setOffset(7, 8);
+    this.setSize(20, 26);
+    this.setOffset(6, 6);
     this.setBounce(0.02);
   }
 
