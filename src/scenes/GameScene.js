@@ -1,8 +1,8 @@
 import { Player } from '../objects/Player.js';
 
-const LEVEL_WIDTH = 2600;
+const LEVEL_WIDTH = 2800;
 const LEVEL_HEIGHT = 720;
-const GROUND_Y = 620;
+const GROUND_Y = 640;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -11,119 +11,121 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.score = data?.score ?? 0;
-    this.life = 1;
     this.gameEnded = false;
   }
 
   create() {
-    this.createBackground();
-
     this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
     this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
     this.cameras.main.setBackgroundColor('#8ecae6');
 
+    this.createBackground();
     this.createPlatforms();
-    this.createPlayer();
-    this.createCollectibles();
+    this.createKillZones();
     this.createHazards();
+    this.createCollectibles();
     this.createGoal();
+    this.createPlayer();
     this.createHUD();
-    this.setupCamera();
     this.setupCollisions();
+    this.setupCamera();
+    this.setupInput();
   }
 
   createBackground() {
-    const sky = this.add.rectangle(
-      LEVEL_WIDTH / 2,
-      LEVEL_HEIGHT / 2,
-      LEVEL_WIDTH,
-      LEVEL_HEIGHT,
-      0x8ecae6
-    );
-    sky.setScrollFactor(0.2);
+    this.add.rectangle(LEVEL_WIDTH / 2, LEVEL_HEIGHT / 2, LEVEL_WIDTH, LEVEL_HEIGHT, 0x8ecae6);
 
-    const cloudColor = 0xeaf6ff;
-    const cloudPositions = [
-      [250, 130], [700, 170], [1200, 120], [1700, 180], [2200, 140]
+    const clouds = [
+      [220, 140], [650, 170], [1100, 130], [1550, 180], [2050, 150], [2480, 125]
     ];
 
-    cloudPositions.forEach(([x, y]) => {
-      const cloud = this.add.ellipse(x, y, 120, 55, cloudColor, 0.9);
-      cloud.setScrollFactor(0.25);
+    clouds.forEach(([x, y]) => {
+      this.add.ellipse(x, y, 120, 50, 0xeaf6ff, 0.95);
     });
 
-    const treeData = [
-      [200, 520], [520, 520], [880, 520], [1250, 520], [1600, 520], [1980, 520], [2320, 520]
-    ];
-
-    treeData.forEach(([x, y]) => {
-      const trunk = this.add.rectangle(x, y, 90, 120, 0x4f7ea3);
-      trunk.setOrigin(0.5, 1);
-      trunk.setScrollFactor(0.45);
-
-      const top = this.add.circle(x, y - 85, 48, 0x2a9d8f);
-      top.setScrollFactor(0.45);
+    const tanks = [180, 760, 1380, 1980, 2460];
+    tanks.forEach((x) => {
+      this.add.rectangle(x, 540, 90, 120, 0x5b7c99).setOrigin(0.5, 1);
+      this.add.circle(x, 415, 45, 0x2a9d8f);
     });
   }
 
   createPlatforms() {
     this.platforms = this.physics.add.staticGroup();
 
-    // suelo continuo recuperable
     const groundSegments = [
-      { x: 160, y: GROUND_Y, w: 320, h: 26 },
-      { x: 520, y: GROUND_Y, w: 320, h: 26 },
-      { x: 900, y: GROUND_Y, w: 360, h: 26 },
-      { x: 1300, y: GROUND_Y, w: 360, h: 26 },
-      { x: 1710, y: GROUND_Y, w: 320, h: 26 },
-      { x: 2070, y: GROUND_Y, w: 320, h: 26 },
-      { x: 2430, y: GROUND_Y, w: 320, h: 26 }
+      { x: 120, w: 240 },
+      { x: 430, w: 220 },
+      { x: 760, w: 230 },
+      { x: 1080, w: 210 },
+      { x: 1410, w: 230 },
+      { x: 1730, w: 220 },
+      { x: 2050, w: 220 },
+      { x: 2360, w: 220 },
+      { x: 2670, w: 180 }
     ];
 
     groundSegments.forEach(seg => {
-      const tile = this.add.rectangle(seg.x, seg.y, seg.w, seg.h, 0x5f7487);
-      this.physics.add.existing(tile, true);
-      this.platforms.add(tile);
+      const r = this.add.rectangle(seg.x, GROUND_Y, seg.w, 24, 0x5f7487).setOrigin(0.5, 0.5);
+      this.physics.add.existing(r, true);
+      this.platforms.add(r);
     });
 
-    // plataformas simples y alcanzables
+    // Plataformas jugables de verdad
     const platformData = [
-      { x: 420, y: 520, w: 170, h: 22 },
-      { x: 700, y: 470, w: 170, h: 22 },
-      { x: 980, y: 420, w: 170, h: 22 },
-      { x: 1310, y: 470, w: 190, h: 22 },
-      { x: 1600, y: 400, w: 170, h: 22 },
-      { x: 1890, y: 470, w: 190, h: 22 },
-      { x: 2200, y: 360, w: 180, h: 22 }
+      { x: 360, y: 565, w: 120 },
+      { x: 560, y: 515, w: 120 },
+      { x: 760, y: 465, w: 120 },
+      { x: 980, y: 515, w: 130 },
+      { x: 1180, y: 465, w: 120 },
+      { x: 1380, y: 415, w: 120 },
+      { x: 1600, y: 470, w: 130 },
+      { x: 1820, y: 420, w: 120 },
+      { x: 2040, y: 370, w: 120 },
+      { x: 2260, y: 430, w: 120 },
+      { x: 2460, y: 380, w: 120 }
     ];
 
     platformData.forEach(seg => {
-      const tile = this.add.rectangle(seg.x, seg.y, seg.w, seg.h, 0x7f8c8d);
-      this.physics.add.existing(tile, true);
-      this.platforms.add(tile);
+      const r = this.add.rectangle(seg.x, seg.y, seg.w, 20, 0x7f8c8d).setOrigin(0.5, 0.5);
+      this.physics.add.existing(r, true);
+      this.platforms.add(r);
     });
   }
 
-  createPlayer() {
-    // spawn claro y jugable
-    this.player = new Player(this, 120, 560);
+  createKillZones() {
+    this.killZones = this.physics.add.staticGroup();
 
-    this.add.existing(this.player);
-    this.physics.add.existing(this.player);
+    const pits = [
+      { x: 280, w: 70 },
+      { x: 600, w: 80 },
+      { x: 920, w: 80 },
+      { x: 1240, w: 80 },
+      { x: 1570, w: 80 },
+      { x: 1890, w: 80 },
+      { x: 2205, w: 80 },
+      { x: 2520, w: 80 }
+    ];
 
-    this.player.body.setCollideWorldBounds(true);
-    this.player.body.setSize(24, 30);
-    this.player.body.setOffset(4, 2);
-    this.player.body.setGravityY(900);
-    this.player.body.setMaxVelocity(260, 700);
+    pits.forEach(pit => {
+      const zone = this.add.rectangle(pit.x, 690, pit.w, 120, 0x8ecae6, 0.01);
+      this.physics.add.existing(zone, true);
+      this.killZones.add(zone);
+    });
+  }
 
-    // por si la clase Player no trae controles propios sólidos
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys({
-      a: Phaser.Input.Keyboard.KeyCodes.A,
-      d: Phaser.Input.Keyboard.KeyCodes.D,
-      w: Phaser.Input.Keyboard.KeyCodes.W,
-      space: Phaser.Input.Keyboard.KeyCodes.SPACE
+  createHazards() {
+    this.hazards = this.physics.add.staticGroup();
+
+    const hazardData = [
+      { x: 1120, y: 622 },
+      { x: 2110, y: 622 }
+    ];
+
+    hazardData.forEach(h => {
+      const spike = this.add.rectangle(h.x, h.y, 26, 26, 0xe63946);
+      this.physics.add.existing(spike, true);
+      this.hazards.add(spike);
     });
   }
 
@@ -134,21 +136,18 @@ export class GameScene extends Phaser.Scene {
     });
 
     const items = [
-      // suelo
-      { x: 240, y: 580, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 560, y: 580, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 860, y: 580, type: 'drop', points: 10, color: 0x3dbbff },
-
-      // ruta de plataformas
-      { x: 420, y: 485, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 700, y: 435, type: 'valve', points: 20, color: 0xd64541 },
-      { x: 980, y: 385, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 1310, y: 435, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 1600, y: 365, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 1890, y: 435, type: 'valve', points: 20, color: 0xd64541 },
-
-      // premio final alto pero alcanzable
-      { x: 2200, y: 325, type: 'joystick', points: 50, color: 0xf4a261 }
+      { x: 170, y: 595, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 360, y: 530, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 560, y: 480, type: 'valve', points: 20, color: 0xd64541 },
+      { x: 760, y: 430, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 980, y: 480, type: 'pipe', points: 15, color: 0x9aa0a6 },
+      { x: 1180, y: 430, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 1380, y: 380, type: 'valve', points: 20, color: 0xd64541 },
+      { x: 1600, y: 435, type: 'pipe', points: 15, color: 0x9aa0a6 },
+      { x: 1820, y: 385, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 2040, y: 335, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 2260, y: 395, type: 'pipe', points: 15, color: 0x9aa0a6 },
+      { x: 2460, y: 345, type: 'joystick', points: 50, color: 0xf4a261 }
     ];
 
     items.forEach(item => {
@@ -168,33 +167,30 @@ export class GameScene extends Phaser.Scene {
       sprite.body.setAllowGravity(false);
       sprite.body.setImmovable(true);
       sprite.points = item.points;
-      sprite.itemType = item.type;
-
       this.collectibles.add(sprite);
     });
   }
 
-  createHazards() {
-    this.hazards = this.physics.add.staticGroup();
-
-    // pocos hazards, claros y evitables
-    const hazardData = [
-      { x: 1120, y: 604, w: 28, h: 28 },
-      { x: 1750, y: 604, w: 28, h: 28 }
-    ];
-
-    hazardData.forEach(h => {
-      const spike = this.add.rectangle(h.x, h.y, h.w, h.h, 0xe63946);
-      this.physics.add.existing(spike, true);
-      this.hazards.add(spike);
-    });
-  }
-
   createGoal() {
-    this.goal = this.add.rectangle(2450, 565, 22, 90, 0x2ecc71);
+    this.goal = this.add.rectangle(2720, 585, 20, 90, 0x2ecc71);
     this.physics.add.existing(this.goal);
     this.goal.body.setAllowGravity(false);
     this.goal.body.setImmovable(true);
+    this.goal.body.setSize(20, 90);
+  }
+
+  createPlayer() {
+    this.player = new Player(this, 90, 590);
+
+    this.add.existing(this.player);
+    this.physics.add.existing(this.player);
+
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(28, 36);
+    this.player.body.setOffset(0, 0);
+    this.player.body.setGravityY(900);
+    this.player.body.setMaxVelocity(320, 900);
+    this.player.body.setBounce(0);
   }
 
   createHUD() {
@@ -204,7 +200,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff'
     }).setScrollFactor(0);
 
-    this.lifeText = this.add.text(20, 55, `VIDA: ${this.life}`, {
+    this.lifeText = this.add.text(20, 55, 'VIDA: 1', {
       fontFamily: 'monospace',
       fontSize: '28px',
       color: '#ffb4a2'
@@ -212,37 +208,45 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupCamera() {
-    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(120, 80);
     this.cameras.main.setZoom(1);
+  }
+
+  setupInput() {
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keys = this.input.keyboard.addKeys({
+      a: Phaser.Input.Keyboard.KeyCodes.A,
+      d: Phaser.Input.Keyboard.KeyCodes.D,
+      w: Phaser.Input.Keyboard.KeyCodes.W,
+      space: Phaser.Input.Keyboard.KeyCodes.SPACE
+    });
   }
 
   setupCollisions() {
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.overlap(this.player, this.collectibles, this.collectItem, null, this);
     this.physics.add.overlap(this.player, this.hazards, this.hitHazard, null, this);
+    this.physics.add.overlap(this.player, this.killZones, this.hitHazard, null, this);
     this.physics.add.overlap(this.player, this.goal, this.reachGoal, null, this);
   }
 
   collectItem(player, item) {
-    if (!item.active) return;
+    if (!item.active || this.gameEnded) return;
 
     this.score += item.points || 10;
     this.scoreText.setText(`PUNTAJE: ${this.score}`);
-
     item.destroy();
   }
 
   hitHazard() {
     if (this.gameEnded) return;
-
     this.gameEnded = true;
-    this.scene.start('gameOver', { score: this.score });
+    this.scene.start('game-over', { score: this.score });
   }
 
   reachGoal() {
     if (this.gameEnded) return;
-
     this.gameEnded = true;
     this.scene.start('victory', { score: this.score });
   }
@@ -257,26 +261,22 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.JustDown(this.keys.w) ||
       Phaser.Input.Keyboard.JustDown(this.keys.space);
 
-    // movimiento más ágil
     if (left) {
-      this.player.body.setVelocityX(-220);
+      this.player.body.setVelocityX(-250);
       this.player.setFlipX(true);
     } else if (right) {
-      this.player.body.setVelocityX(220);
+      this.player.body.setVelocityX(250);
       this.player.setFlipX(false);
     } else {
       this.player.body.setVelocityX(0);
     }
 
-    // salto arcade usable
     if (jumpPressed && this.player.body.blocked.down) {
-      this.player.body.setVelocityY(-470);
+      this.player.body.setVelocityY(-600);
     }
 
-    // si por alguna razón cae fuera del mundo, revive en suelo
-    if (this.player.y > LEVEL_HEIGHT + 100) {
-      this.player.setPosition(120, 560);
-      this.player.body.setVelocity(0, 0);
+    if (this.player.y > LEVEL_HEIGHT + 40) {
+      this.hitHazard();
     }
   }
 }
