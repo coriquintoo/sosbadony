@@ -1,8 +1,6 @@
 import { Player } from '../objects/Player.js';
 
-const LEVEL_WIDTH = 2600;
-const LEVEL_HEIGHT = 600;
-const GROUND_Y = 452;
+const LEVEL_WIDTH = 3400;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -18,12 +16,11 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.createParallaxBackground();
 
-    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
-    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
+    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, 540);
+    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, 540);
 
     Player.createAnimations(this);
-    // Spawn clearly above the main floor so the player is fully visible and settles onto ground.
-    this.player = new Player(this, 96, 410);
+    this.player = new Player(this, 80, 360);
     this.player.play('dony-idle');
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -38,7 +35,7 @@ export class GameScene extends Phaser.Scene {
     this.hazards = this.physics.add.group({ allowGravity: false, immovable: true });
     this.createHazards();
 
-    this.finishFlag = this.physics.add.staticSprite(2360, 224, 'finish-flag');
+    this.finishFlag = this.physics.add.staticSprite(LEVEL_WIDTH - 120, 390, 'finish-flag');
 
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.player, this.boxes);
@@ -48,18 +45,15 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.finishFlag, () => this.completeLevel(), undefined, this);
 
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-    this.cameras.main.setDeadzone(220, 120);
-    this.cameras.main.setFollowOffset(0, -70);
+    this.cameras.main.setDeadzone(200, 80);
 
-    this.hudPanel = this.add.rectangle(148, 38, 280, 52, 0x102a43, 0.75).setScrollFactor(0).setDepth(998);
     this.scoreText = this.add
       .text(16, 16, `PUNTAJE: ${this.score}`, {
         fontFamily: '"Press Start 2P"',
         fontSize: '14px',
         color: '#ffffff'
       })
-      .setScrollFactor(0)
-      .setDepth(999);
+      .setScrollFactor(0);
 
     this.lifeText = this.add
       .text(16, 40, `VIDA: ${this.life}`, {
@@ -67,8 +61,7 @@ export class GameScene extends Phaser.Scene {
         fontSize: '14px',
         color: '#ffadad'
       })
-      .setScrollFactor(0)
-      .setDepth(999);
+      .setScrollFactor(0);
 
     this.soundManager = this.registry.get('soundManager');
     this.soundManager?.attachScene?.(this);
@@ -93,59 +86,64 @@ export class GameScene extends Phaser.Scene {
   }
 
   createPlatformsAndHoles() {
-    // Wide beginner-friendly ground floor (recovery lane).
-    for (let x = 0; x <= LEVEL_WIDTH; x += 64) {
-      const texture = x % 128 === 0 ? 'platform-metal' : 'platform-concrete';
-      this.createStaticBody(this.platforms, x, GROUND_Y, texture);
+    const segments = [
+      [0, 400],
+      [460, 700],
+      [760, 1000],
+      [1100, 1420],
+      [1540, 1820],
+      [1940, 2260],
+      [2380, 2660],
+      [2780, 3100],
+      [3220, 3400]
+    ];
+
+    for (const [start, end] of segments) {
+      for (let x = start; x <= end; x += 64) {
+        const texture = x % 128 === 0 ? 'platform-metal' : 'platform-concrete';
+        this.platforms.create(x, 452, texture).setOrigin(0, 0);
+      }
     }
 
-    // 5 reachable route platforms total:
-    // 2 low, 2 medium, 1 final near the end.
-    const platformRoute = [
-      { x: 420, y: 380, tiles: 3, texture: 'platform-metal' }, // low 1
-      { x: 760, y: 350, tiles: 3, texture: 'platform-concrete' }, // low 2
-      { x: 1120, y: 300, tiles: 3, texture: 'platform-metal' }, // medium 1
-      { x: 1480, y: 270, tiles: 3, texture: 'platform-concrete' }, // medium 2
-      { x: 1960, y: 240, tiles: 4, texture: 'platform-metal' } // final
-    ];
+    // Elevated industrial routes.
+    for (let x = 580; x <= 960; x += 64) {
+      this.platforms.create(x, 320, 'platform-metal').setOrigin(0, 0);
+    }
 
-    platformRoute.forEach((platform) => {
-      for (let i = 0; i < platform.tiles; i += 1) {
-        this.createStaticBody(this.platforms, platform.x + i * 64, platform.y, platform.texture);
-      }
-    });
+    for (let x = 1720; x <= 2060; x += 64) {
+      this.platforms.create(x, 270, 'platform-concrete').setOrigin(0, 0);
+    }
 
-    // Small decorative boxes on ground only (do not block recovery).
+    for (let x = 2500; x <= 2900; x += 64) {
+      this.platforms.create(x, 340, 'platform-metal').setOrigin(0, 0);
+    }
+
+    // Static box obstacles.
     const boxPositions = [
-      [620, 428],
-      [1260, 428]
+      [660, 428],
+      [720, 428],
+      [1880, 246],
+      [2610, 316]
     ];
-    boxPositions.forEach(([x, y]) => this.createStaticBody(this.boxes, x, y, 'obstacle-box'));
-  }
 
-  createStaticBody(group, x, y, texture) {
-    const body = group.create(x, y, texture).setOrigin(0, 0);
-    // Static bodies must be refreshed after position/origin changes.
-    body.refreshBody();
-    return body;
+    boxPositions.forEach(([x, y]) => this.boxes.create(x, y, 'obstacle-box').setOrigin(0, 0));
   }
 
   createCollectibles() {
     const itemData = [
-      // Ground route collectibles.
-      { x: 220, y: 410, key: 'item-drop', points: 10 },
-      { x: 340, y: 410, key: 'item-pipe', points: 15 },
-      { x: 600, y: 410, key: 'item-valve', points: 20 },
-      { x: 900, y: 410, key: 'item-drop', points: 10 },
-      { x: 1320, y: 410, key: 'item-pipe', points: 15 },
-      // Above low / medium platforms (all reachable with normal jumps).
-      { x: 520, y: 342, key: 'item-drop', points: 10 },
-      { x: 860, y: 312, key: 'item-valve', points: 20 },
-      { x: 1240, y: 262, key: 'item-pipe', points: 15 },
-      { x: 1600, y: 232, key: 'item-drop', points: 10 },
-      { x: 2160, y: 202, key: 'item-valve', points: 20 },
-      // Final reward near goal.
-      { x: 2340, y: 202, key: 'item-joystick', points: 50 }
+      { x: 220, y: 360, key: 'item-drop', points: 10 },
+      { x: 340, y: 360, key: 'item-pipe', points: 15 },
+      { x: 620, y: 280, key: 'item-valve', points: 20 },
+      { x: 760, y: 280, key: 'item-drop', points: 10 },
+      { x: 900, y: 280, key: 'item-pipe', points: 15 },
+      { x: 1220, y: 360, key: 'item-valve', points: 20 },
+      { x: 1600, y: 360, key: 'item-drop', points: 10 },
+      { x: 1760, y: 230, key: 'item-pipe', points: 15 },
+      { x: 1940, y: 230, key: 'item-valve', points: 20 },
+      { x: 2520, y: 300, key: 'item-drop', points: 10 },
+      { x: 2790, y: 300, key: 'item-pipe', points: 15 },
+      { x: 3050, y: 360, key: 'item-valve', points: 20 },
+      { x: 3300, y: 360, key: 'item-joystick', points: 50 }
     ];
 
     itemData.forEach((item) => {
@@ -163,8 +161,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   createHazards() {
-    // Single simple hazard to keep focus on playability.
-    const shooters = [1760];
+    // Timed water jets from valve shooters.
+    const shooters = [850, 1470, 2140, 2940];
 
     shooters.forEach((x) => {
       this.add.sprite(x, 420, 'hazard-valve-shooter').setOrigin(0.5, 1);
@@ -180,7 +178,7 @@ export class GameScene extends Phaser.Scene {
           jet.setVisible(true).setActive(true);
           this.tweens.add({
             targets: jet,
-            y: 330,
+            y: 300,
             duration: 260,
             yoyo: true,
             onComplete: () => jet.setVisible(false).setActive(false)
@@ -216,7 +214,7 @@ export class GameScene extends Phaser.Scene {
   update() {
     if (this.gameEnded) return;
 
-    const speed = 190;
+    const speed = 150;
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-speed);
       this.player.setFlipX(true);
@@ -228,7 +226,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && this.player.body.blocked.down) {
-      this.player.setVelocityY(-410);
+      this.player.setVelocityY(-290);
       this.soundManager?.playJump();
     }
 
@@ -241,7 +239,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // One life rule: falling into holes instantly ends the game.
-    if (this.player.y > LEVEL_HEIGHT - 20) {
+    if (this.player.y > 540) {
       this.endGame();
     }
   }
