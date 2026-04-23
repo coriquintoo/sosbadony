@@ -1,6 +1,6 @@
 import { Player } from '../objects/Player.js';
 
-const LEVEL_WIDTH = 3400;
+const LEVEL_WIDTH = 2600;
 const LEVEL_HEIGHT = 600;
 const GROUND_Y = 452;
 
@@ -23,7 +23,7 @@ export class GameScene extends Phaser.Scene {
 
     Player.createAnimations(this);
     // Spawn clearly above the main floor so the player is fully visible and settles onto ground.
-    this.player = new Player(this, 80, 390);
+    this.player = new Player(this, 96, 410);
     this.player.play('dony-idle');
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -38,7 +38,7 @@ export class GameScene extends Phaser.Scene {
     this.hazards = this.physics.add.group({ allowGravity: false, immovable: true });
     this.createHazards();
 
-    this.finishFlag = this.physics.add.staticSprite(LEVEL_WIDTH - 120, 390, 'finish-flag');
+    this.finishFlag = this.physics.add.staticSprite(2360, 224, 'finish-flag');
 
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.player, this.boxes);
@@ -93,64 +93,33 @@ export class GameScene extends Phaser.Scene {
   }
 
   createPlatformsAndHoles() {
-    const segments = [
-      [0, 400],
-      [460, 700],
-      [760, 1000],
-      [1100, 1420],
-      [1540, 1820],
-      [1940, 2260],
-      [2380, 2660],
-      [2780, 3100],
-      [3220, 3400]
+    // Wide beginner-friendly ground floor (recovery lane).
+    for (let x = 0; x <= LEVEL_WIDTH; x += 64) {
+      const texture = x % 128 === 0 ? 'platform-metal' : 'platform-concrete';
+      this.createStaticBody(this.platforms, x, GROUND_Y, texture);
+    }
+
+    // 5 reachable route platforms total:
+    // 2 low, 2 medium, 1 final near the end.
+    const platformRoute = [
+      { x: 420, y: 380, tiles: 3, texture: 'platform-metal' }, // low 1
+      { x: 760, y: 350, tiles: 3, texture: 'platform-concrete' }, // low 2
+      { x: 1120, y: 300, tiles: 3, texture: 'platform-metal' }, // medium 1
+      { x: 1480, y: 270, tiles: 3, texture: 'platform-concrete' }, // medium 2
+      { x: 1960, y: 240, tiles: 4, texture: 'platform-metal' } // final
     ];
 
-    for (const [start, end] of segments) {
-      for (let x = start; x <= end; x += 64) {
-        const texture = x % 128 === 0 ? 'platform-metal' : 'platform-concrete';
-        this.createStaticBody(this.platforms, x, GROUND_Y, texture);
+    platformRoute.forEach((platform) => {
+      for (let i = 0; i < platform.tiles; i += 1) {
+        this.createStaticBody(this.platforms, platform.x + i * 64, platform.y, platform.texture);
       }
-    }
+    });
 
-    // Elevated routes with an easy-to-hard difficulty curve and recovery paths.
-    // Section 1 (easy): gentle stair from ground.
-    for (let x = 520; x <= 712; x += 64) {
-      this.createStaticBody(this.platforms, x, 390, 'platform-metal');
-    }
-    for (let x = 776; x <= 968; x += 64) {
-      this.createStaticBody(this.platforms, x, 330, 'platform-concrete');
-    }
-
-    // Section 2 (medium): ascending platforms with safe returns to floor.
-    for (let x = 1620; x <= 1812; x += 64) {
-      this.createStaticBody(this.platforms, x, 380, 'platform-concrete');
-    }
-    for (let x = 1876; x <= 2004; x += 64) {
-      this.createStaticBody(this.platforms, x, 320, 'platform-metal');
-    }
-    for (let x = 2068; x <= 2196; x += 64) {
-      this.createStaticBody(this.platforms, x, 270, 'platform-concrete');
-    }
-
-    // Section 3 (harder): tighter chain near level end, still recoverable from ground.
-    for (let x = 2460; x <= 2588; x += 64) {
-      this.createStaticBody(this.platforms, x, 380, 'platform-metal');
-    }
-    for (let x = 2652; x <= 2780; x += 64) {
-      this.createStaticBody(this.platforms, x, 330, 'platform-concrete');
-    }
-    for (let x = 2844; x <= 3036; x += 64) {
-      this.createStaticBody(this.platforms, x, 280, 'platform-metal');
-    }
-
-    // Static box obstacles.
+    // Small decorative boxes on ground only (do not block recovery).
     const boxPositions = [
-      [660, 428],
-      [720, 428],
-      [1880, 246],
-      [2610, 316]
+      [620, 428],
+      [1260, 428]
     ];
-
     boxPositions.forEach(([x, y]) => this.createStaticBody(this.boxes, x, y, 'obstacle-box'));
   }
 
@@ -163,19 +132,20 @@ export class GameScene extends Phaser.Scene {
 
   createCollectibles() {
     const itemData = [
-      { x: 220, y: 360, key: 'item-drop', points: 10 },
-      { x: 340, y: 360, key: 'item-pipe', points: 15 },
-      { x: 580, y: 352, key: 'item-valve', points: 20 },
-      { x: 840, y: 292, key: 'item-drop', points: 10 },
-      { x: 940, y: 292, key: 'item-pipe', points: 15 },
-      { x: 1220, y: 360, key: 'item-valve', points: 20 },
-      { x: 1680, y: 342, key: 'item-drop', points: 10 },
-      { x: 1940, y: 282, key: 'item-pipe', points: 15 },
-      { x: 2140, y: 232, key: 'item-valve', points: 20 },
-      { x: 2520, y: 342, key: 'item-drop', points: 10 },
-      { x: 2710, y: 292, key: 'item-pipe', points: 15 },
-      { x: 2970, y: 242, key: 'item-valve', points: 20 },
-      { x: 3300, y: 360, key: 'item-joystick', points: 50 }
+      // Ground route collectibles.
+      { x: 220, y: 410, key: 'item-drop', points: 10 },
+      { x: 340, y: 410, key: 'item-pipe', points: 15 },
+      { x: 600, y: 410, key: 'item-valve', points: 20 },
+      { x: 900, y: 410, key: 'item-drop', points: 10 },
+      { x: 1320, y: 410, key: 'item-pipe', points: 15 },
+      // Above low / medium platforms (all reachable with normal jumps).
+      { x: 520, y: 342, key: 'item-drop', points: 10 },
+      { x: 860, y: 312, key: 'item-valve', points: 20 },
+      { x: 1240, y: 262, key: 'item-pipe', points: 15 },
+      { x: 1600, y: 232, key: 'item-drop', points: 10 },
+      { x: 2160, y: 202, key: 'item-valve', points: 20 },
+      // Final reward near goal.
+      { x: 2340, y: 202, key: 'item-joystick', points: 50 }
     ];
 
     itemData.forEach((item) => {
@@ -193,8 +163,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   createHazards() {
-    // Timed water jets from valve shooters.
-    const shooters = [850, 1470, 2140, 2940];
+    // Single simple hazard to keep focus on playability.
+    const shooters = [1760];
 
     shooters.forEach((x) => {
       this.add.sprite(x, 420, 'hazard-valve-shooter').setOrigin(0.5, 1);
@@ -210,7 +180,7 @@ export class GameScene extends Phaser.Scene {
           jet.setVisible(true).setActive(true);
           this.tweens.add({
             targets: jet,
-            y: 300,
+            y: 330,
             duration: 260,
             yoyo: true,
             onComplete: () => jet.setVisible(false).setActive(false)
@@ -246,7 +216,7 @@ export class GameScene extends Phaser.Scene {
   update() {
     if (this.gameEnded) return;
 
-    const speed = 175;
+    const speed = 190;
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-speed);
       this.player.setFlipX(true);
@@ -258,7 +228,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && this.player.body.blocked.down) {
-      this.player.setVelocityY(-370);
+      this.player.setVelocityY(-410);
       this.soundManager?.playJump();
     }
 
