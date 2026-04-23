@@ -1,8 +1,6 @@
 import { Player } from '../objects/Player.js';
 
 const LEVEL_WIDTH = 3400;
-const LEVEL_HEIGHT = 600;
-const GROUND_Y = 452;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -18,12 +16,11 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.createParallaxBackground();
 
-    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
-    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
+    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, 540);
+    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, 540);
 
     Player.createAnimations(this);
-    // Spawn clearly above the main floor so the player is fully visible and settles onto ground.
-    this.player = new Player(this, 80, 390);
+    this.player = new Player(this, 80, 360);
     this.player.play('dony-idle');
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -48,18 +45,15 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.finishFlag, () => this.completeLevel(), undefined, this);
 
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-    this.cameras.main.setDeadzone(220, 120);
-    this.cameras.main.setFollowOffset(0, -70);
+    this.cameras.main.setDeadzone(200, 80);
 
-    this.hudPanel = this.add.rectangle(148, 38, 280, 52, 0x102a43, 0.75).setScrollFactor(0).setDepth(998);
     this.scoreText = this.add
       .text(16, 16, `PUNTAJE: ${this.score}`, {
         fontFamily: '"Press Start 2P"',
         fontSize: '14px',
         color: '#ffffff'
       })
-      .setScrollFactor(0)
-      .setDepth(999);
+      .setScrollFactor(0);
 
     this.lifeText = this.add
       .text(16, 40, `VIDA: ${this.life}`, {
@@ -67,8 +61,7 @@ export class GameScene extends Phaser.Scene {
         fontSize: '14px',
         color: '#ffadad'
       })
-      .setScrollFactor(0)
-      .setDepth(999);
+      .setScrollFactor(0);
 
     this.soundManager = this.registry.get('soundManager');
     this.soundManager?.attachScene?.(this);
@@ -108,7 +101,7 @@ export class GameScene extends Phaser.Scene {
     for (const [start, end] of segments) {
       for (let x = start; x <= end; x += 64) {
         const texture = x % 128 === 0 ? 'platform-metal' : 'platform-concrete';
-        this.platforms.create(x, GROUND_Y, texture).setOrigin(0, 0);
+        this.platforms.create(x, 452, texture).setOrigin(0, 0);
       }
     }
 
@@ -246,7 +239,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // One life rule: falling into holes instantly ends the game.
-    if (this.player.y > LEVEL_HEIGHT - 20) {
+    if (this.player.y > 540) {
       this.endGame();
     }
   }
