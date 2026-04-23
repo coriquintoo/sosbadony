@@ -1,6 +1,8 @@
 import { Player } from '../objects/Player.js';
 
-const LEVEL_WIDTH = 3400;
+const LEVEL_WIDTH = 2600;
+const LEVEL_HEIGHT = 720;
+const GROUND_Y = 620;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -8,239 +10,299 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.score = data.score ?? 0;
+    this.score = data?.score ?? 0;
     this.life = 1;
     this.gameEnded = false;
   }
 
   create() {
-    this.createParallaxBackground();
+    this.createBackground();
 
-    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, 540);
-    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, 540);
+    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
+    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
+    this.cameras.main.setBackgroundColor('#8ecae6');
 
-    Player.createAnimations(this);
-    this.player = new Player(this, 80, 360);
-    this.player.play('dony-idle');
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-
-    this.platforms = this.physics.add.staticGroup();
-    this.boxes = this.physics.add.staticGroup();
-    this.createPlatformsAndHoles();
-
-    this.collectibles = this.physics.add.group({ allowGravity: false, immovable: true });
+    this.createPlatforms();
+    this.createPlayer();
     this.createCollectibles();
-
-    this.hazards = this.physics.add.group({ allowGravity: false, immovable: true });
     this.createHazards();
+    this.createKillZones();
+    this.createGoal();
+    this.createHUD();
+    this.setupCamera();
+    this.setupCollisions();
+  }
 
-    this.finishFlag = this.physics.add.staticSprite(LEVEL_WIDTH - 120, 390, 'finish-flag');
+  createBackground() {
+    const sky = this.add.rectangle(
+      LEVEL_WIDTH / 2,
+      LEVEL_HEIGHT / 2,
+      LEVEL_WIDTH,
+      LEVEL_HEIGHT,
+      0x8ecae6
+    );
+    sky.setScrollFactor(0.2);
 
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.collider(this.player, this.boxes);
+    const cloudColor = 0xeaf6ff;
+    const cloudPositions = [
+      [250, 130],
+      [700, 170],
+      [1200, 120],
+      [1700, 180],
+      [2200, 140]
+    ];
 
-    this.physics.add.overlap(this.player, this.collectibles, this.collectItem, undefined, this);
-    this.physics.add.overlap(this.player, this.hazards, () => this.endGame(), undefined, this);
-    this.physics.add.overlap(this.player, this.finishFlag, () => this.completeLevel(), undefined, this);
+    cloudPositions.forEach(([x, y]) => {
+      const cloud = this.add.ellipse(x, y, 120, 55, cloudColor, 0.9);
+      cloud.setScrollFactor(0.25);
+    });
 
-    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-    this.cameras.main.setDeadzone(200, 80);
+    const tankData = [
+      [220, 560],
+      [820, 560],
+      [1460, 560],
+      [2050, 560]
+    ];
 
+    tankData.forEach(([x, y]) => {
+      const tank = this.add.rectangle(x, y, 110, 170, 0x5b7c99);
+      tank.setOrigin(0.5, 1);
+      tank.setScrollFactor(0.45);
+
+      const top = this.add.rectangle(x, y - 170, 110, 18, 0x7f9bb3);
+      top.setOrigin(0.5, 1);
+      top.setScrollFactor(0.45);
+    });
+  }
+
+  createPlatforms() {
+    this.platforms = this.physics.add.staticGroup();
+
+    // suelo principal con pozos
+    const groundSegments = [
+      { x: 130, y: GROUND_Y, w: 260, h: 26 },
+      { x: 460, y: GROUND_Y, w: 240, h: 26 },
+      { x: 800, y: GROUND_Y, w: 250, h: 26 },
+      { x: 1130, y: GROUND_Y, w: 220, h: 26 },
+      { x: 1470, y: GROUND_Y, w: 260, h: 26 },
+      { x: 1820, y: GROUND_Y, w: 230, h: 26 },
+      { x: 2150, y: GROUND_Y, w: 240, h: 26 },
+      { x: 2470, y: GROUND_Y, w: 180, h: 26 }
+    ];
+
+    groundSegments.forEach(seg => {
+      const tile = this.add.rectangle(seg.x, seg.y, seg.w, seg.h, 0x5f7487);
+      this.physics.add.existing(tile, true);
+      this.platforms.add(tile);
+    });
+
+    // plataformas rebalanceadas, más bajas y cercanas
+    const platformData = [
+      { x: 420, y: 535, w: 150, h: 22 },
+      { x: 650, y: 485, w: 150, h: 22 },
+      { x: 880, y: 440, w: 150, h: 22 },
+      { x: 1120, y: 500, w: 160, h: 22 },
+      { x: 1360, y: 455, w: 160, h: 22 },
+      { x: 1600, y: 410, w: 160, h: 22 },
+      { x: 1840, y: 470, w: 160, h: 22 },
+      { x: 2070, y: 425, w: 160, h: 22 },
+      { x: 2290, y: 380, w: 150, h: 22 }
+    ];
+
+    platformData.forEach(seg => {
+      const tile = this.add.rectangle(seg.x, seg.y, seg.w, seg.h, 0x7f8c8d);
+      this.physics.add.existing(tile, true);
+      this.platforms.add(tile);
+    });
+  }
+
+  createPlayer() {
+    this.player = new Player(this, 90, 560);
+
+    this.add.existing(this.player);
+    this.physics.add.existing(this.player);
+
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(24, 30);
+    this.player.body.setOffset(4, 2);
+    this.player.body.setGravityY(860);
+    this.player.body.setMaxVelocity(320, 760);
+  }
+
+  createCollectibles() {
+    this.collectibles = this.physics.add.group({
+      allowGravity: false,
+      immovable: true
+    });
+
+    const items = [
+      { x: 180, y: 580, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 420, y: 500, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 650, y: 450, type: 'valve', points: 20, color: 0xd64541 },
+      { x: 880, y: 405, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 1120, y: 465, type: 'pipe', points: 15, color: 0x9aa0a6 },
+      { x: 1360, y: 420, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 1600, y: 375, type: 'valve', points: 20, color: 0xd64541 },
+      { x: 1840, y: 435, type: 'pipe', points: 15, color: 0x9aa0a6 },
+      { x: 2070, y: 390, type: 'drop', points: 10, color: 0x3dbbff },
+      { x: 2290, y: 345, type: 'joystick', points: 50, color: 0xf4a261 }
+    ];
+
+    items.forEach(item => {
+      let sprite;
+
+      if (item.type === 'drop') {
+        sprite = this.add.circle(item.x, item.y, 10, item.color);
+      } else if (item.type === 'valve') {
+        sprite = this.add.rectangle(item.x, item.y, 18, 18, item.color);
+      } else if (item.type === 'pipe') {
+        sprite = this.add.rectangle(item.x, item.y, 24, 12, item.color);
+      } else {
+        sprite = this.add.rectangle(item.x, item.y, 20, 20, item.color);
+      }
+
+      this.physics.add.existing(sprite);
+      sprite.body.setAllowGravity(false);
+      sprite.body.setImmovable(true);
+      sprite.points = item.points;
+      sprite.itemType = item.type;
+
+      this.collectibles.add(sprite);
+    });
+  }
+
+  createHazards() {
+    this.hazards = this.physics.add.staticGroup();
+
+    const hazardData = [
+      { x: 1010, y: 604, w: 28, h: 28 },
+      { x: 1720, y: 604, w: 28, h: 28 }
+    ];
+
+    hazardData.forEach(h => {
+      const spike = this.add.rectangle(h.x, h.y, h.w, h.h, 0xe63946);
+      this.physics.add.existing(spike, true);
+      this.hazards.add(spike);
+    });
+  }
+
+  createKillZones() {
+    this.killZones = this.physics.add.staticGroup();
+
+    const pitData = [
+      { x: 300, y: 690, w: 70, h: 120 },
+      { x: 640, y: 690, w: 90, h: 120 },
+      { x: 975, y: 690, w: 85, h: 120 },
+      { x: 1285, y: 690, w: 105, h: 120 },
+      { x: 1645, y: 690, w: 90, h: 120 },
+      { x: 1985, y: 690, w: 100, h: 120 },
+      { x: 2310, y: 690, w: 90, h: 120 }
+    ];
+
+    pitData.forEach(pit => {
+      const zone = this.add.rectangle(pit.x, pit.y, pit.w, pit.h, 0x8ecae6, 0.01);
+      this.physics.add.existing(zone, true);
+      this.killZones.add(zone);
+    });
+  }
+
+  createGoal() {
+    this.goal = this.add.rectangle(2500, 560, 20, 80, 0x2ecc71);
+    this.physics.add.existing(this.goal);
+    this.goal.body.setAllowGravity(false);
+    this.goal.body.setImmovable(true);
+    this.goal.body.setSize(20, 80);
+  }
+
+  createHUD() {
     this.scoreText = this.add
-      .text(16, 16, `PUNTAJE: ${this.score}`, {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '14px',
+      .text(20, 20, `PUNTAJE: ${this.score}`, {
+        fontFamily: 'monospace',
+        fontSize: '28px',
         color: '#ffffff'
       })
       .setScrollFactor(0);
 
     this.lifeText = this.add
-      .text(16, 40, `VIDA: ${this.life}`, {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '14px',
-        color: '#ffadad'
+      .text(20, 55, `VIDA: ${this.life}`, {
+        fontFamily: 'monospace',
+        fontSize: '28px',
+        color: '#ffb4a2'
       })
       .setScrollFactor(0);
-
-    this.soundManager = this.registry.get('soundManager');
-    this.soundManager?.attachScene?.(this);
   }
 
-  createParallaxBackground() {
-    const { width, height } = this.scale;
-    this.add.rectangle(width / 2, height / 2, width * 6, height, 0x8ecae6).setScrollFactor(0);
-
-    const cloudColor = 0xdaf3ff;
-    for (let i = 0; i < 12; i += 1) {
-      this.add.ellipse(180 + i * 300, 70 + (i % 3) * 25, 90, 34, cloudColor).setScrollFactor(0.2);
-    }
-
-    for (let i = 0; i < 20; i += 1) {
-      this.add.rectangle(120 + i * 170, 230 + (i % 2) * 20, 50, 90, 0x457b9d).setScrollFactor(0.5);
-      this.add.circle(120 + i * 170, 210 + (i % 2) * 20, 30, 0x2a9d8f).setScrollFactor(0.5);
-      this.add.rectangle(120 + i * 170, 310 + (i % 2) * 20, 100, 16, 0x6c757d).setScrollFactor(0.45);
-    }
-
-    this.add.rectangle(LEVEL_WIDTH / 2, 540 - 20, LEVEL_WIDTH, 40, 0x264653);
+  setupCamera() {
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.cameras.main.setDeadzone(120, 80);
+    this.cameras.main.setZoom(1);
   }
 
-  createPlatformsAndHoles() {
-    const segments = [
-      [0, 400],
-      [460, 700],
-      [760, 1000],
-      [1100, 1420],
-      [1540, 1820],
-      [1940, 2260],
-      [2380, 2660],
-      [2780, 3100],
-      [3220, 3400]
-    ];
+  setupCollisions() {
+    this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.overlap(this.player, this.collectibles, this.collectItem, null, this);
+    this.physics.add.overlap(this.player, this.hazards, this.hitHazard, null, this);
+    this.physics.add.overlap(this.player, this.killZones, this.hitHazard, null, this);
+    this.physics.add.overlap(this.player, this.goal, this.reachGoal, null, this);
 
-    for (const [start, end] of segments) {
-      for (let x = start; x <= end; x += 64) {
-        const texture = x % 128 === 0 ? 'platform-metal' : 'platform-concrete';
-        this.platforms.create(x, 452, texture).setOrigin(0, 0);
-      }
-    }
-
-    // Elevated industrial routes.
-    for (let x = 580; x <= 960; x += 64) {
-      this.platforms.create(x, 320, 'platform-metal').setOrigin(0, 0);
-    }
-
-    for (let x = 1720; x <= 2060; x += 64) {
-      this.platforms.create(x, 270, 'platform-concrete').setOrigin(0, 0);
-    }
-
-    for (let x = 2500; x <= 2900; x += 64) {
-      this.platforms.create(x, 340, 'platform-metal').setOrigin(0, 0);
-    }
-
-    // Static box obstacles.
-    const boxPositions = [
-      [660, 428],
-      [720, 428],
-      [1880, 246],
-      [2610, 316]
-    ];
-
-    boxPositions.forEach(([x, y]) => this.boxes.create(x, y, 'obstacle-box').setOrigin(0, 0));
-  }
-
-  createCollectibles() {
-    const itemData = [
-      { x: 220, y: 360, key: 'item-drop', points: 10 },
-      { x: 340, y: 360, key: 'item-pipe', points: 15 },
-      { x: 620, y: 280, key: 'item-valve', points: 20 },
-      { x: 760, y: 280, key: 'item-drop', points: 10 },
-      { x: 900, y: 280, key: 'item-pipe', points: 15 },
-      { x: 1220, y: 360, key: 'item-valve', points: 20 },
-      { x: 1600, y: 360, key: 'item-drop', points: 10 },
-      { x: 1760, y: 230, key: 'item-pipe', points: 15 },
-      { x: 1940, y: 230, key: 'item-valve', points: 20 },
-      { x: 2520, y: 300, key: 'item-drop', points: 10 },
-      { x: 2790, y: 300, key: 'item-pipe', points: 15 },
-      { x: 3050, y: 360, key: 'item-valve', points: 20 },
-      { x: 3300, y: 360, key: 'item-joystick', points: 50 }
-    ];
-
-    itemData.forEach((item) => {
-      const sprite = this.collectibles.create(item.x, item.y, item.key);
-      sprite.points = item.points;
-      this.tweens.add({
-        targets: sprite,
-        y: sprite.y - 5,
-        duration: 700,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.inOut'
-      });
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keys = this.input.keyboard.addKeys({
+      a: Phaser.Input.Keyboard.KeyCodes.A,
+      d: Phaser.Input.Keyboard.KeyCodes.D,
+      w: Phaser.Input.Keyboard.KeyCodes.W,
+      space: Phaser.Input.Keyboard.KeyCodes.SPACE
     });
   }
 
-  createHazards() {
-    // Timed water jets from valve shooters.
-    const shooters = [850, 1470, 2140, 2940];
+  collectItem(player, item) {
+    if (!item.active || this.gameEnded) return;
 
-    shooters.forEach((x) => {
-      this.add.sprite(x, 420, 'hazard-valve-shooter').setOrigin(0.5, 1);
-
-      const jet = this.hazards.create(x, 380, 'hazard-water');
-      jet.setVisible(false).setActive(false);
-
-      this.time.addEvent({
-        delay: 1400 + Phaser.Math.Between(0, 600),
-        loop: true,
-        callback: () => {
-          jet.setPosition(x, 380);
-          jet.setVisible(true).setActive(true);
-          this.tweens.add({
-            targets: jet,
-            y: 300,
-            duration: 260,
-            yoyo: true,
-            onComplete: () => jet.setVisible(false).setActive(false)
-          });
-        }
-      });
-    });
-  }
-
-  collectItem(_, item) {
-    this.score += item.points;
+    this.score += item.points || 10;
     this.scoreText.setText(`PUNTAJE: ${this.score}`);
     item.destroy();
-    this.soundManager?.playCollect();
   }
 
-  completeLevel() {
+  hitHazard() {
     if (this.gameEnded) return;
-    this.gameEnded = true;
-    this.soundManager?.playCollect();
-    this.scene.start('level-complete', { score: this.score });
-  }
 
-  endGame() {
-    if (this.gameEnded) return;
     this.gameEnded = true;
-    this.life = 0;
-    this.lifeText.setText(`VIDA: ${this.life}`);
-    this.soundManager?.playHit();
     this.scene.start('game-over', { score: this.score });
   }
 
-  update() {
+  reachGoal() {
     if (this.gameEnded) return;
 
-    const speed = 150;
-    if (this.cursors.left.isDown) {
-      this.player.setVelocityX(-speed);
+    this.gameEnded = true;
+    this.scene.start('victory', { score: this.score });
+  }
+
+  update() {
+    if (!this.player || this.gameEnded) return;
+
+    const left = this.cursors.left.isDown || this.keys.a.isDown;
+    const right = this.cursors.right.isDown || this.keys.d.isDown;
+    const jumpPressed =
+      Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
+      Phaser.Input.Keyboard.JustDown(this.keys.w) ||
+      Phaser.Input.Keyboard.JustDown(this.keys.space);
+
+    if (left) {
+      this.player.body.setVelocityX(-245);
       this.player.setFlipX(true);
-    } else if (this.cursors.right.isDown) {
-      this.player.setVelocityX(speed);
+    } else if (right) {
+      this.player.body.setVelocityX(245);
       this.player.setFlipX(false);
     } else {
-      this.player.setVelocityX(0);
+      this.player.body.setVelocityX(0);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && this.player.body.blocked.down) {
-      this.player.setVelocityY(-290);
-      this.soundManager?.playJump();
+    // salto más fuerte
+    if (jumpPressed && this.player.body.blocked.down) {
+      this.player.body.setVelocityY(-560);
     }
 
-    if (!this.player.body.blocked.down) {
-      this.player.play('dony-jump', true);
-    } else if (this.player.body.velocity.x !== 0) {
-      this.player.play('dony-run', true);
-    } else {
-      this.player.play('dony-idle', true);
-    }
-
-    // One life rule: falling into holes instantly ends the game.
-    if (this.player.y > 540) {
-      this.endGame();
+    if (this.player.y > LEVEL_HEIGHT + 40) {
+      this.hitHazard();
     }
   }
 }
