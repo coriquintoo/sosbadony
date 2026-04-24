@@ -1,131 +1,72 @@
-import { Player } from '../objects/Player.js';
-
-const LEVEL_WIDTH = 2800;
+const LEVEL_WIDTH = 3200;
 const LEVEL_HEIGHT = 720;
-const GROUND_Y = 640;
+const GROUND_Y = 680;
+const FALL_LIMIT = 760;
+const START_POSITION = { x: 120, y: 560 };
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('game');
   }
 
-  init(data) {
-    this.score = data?.score ?? 0;
-    this.gameEnded = false;
-  }
-
   create() {
-    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
+    this.score = 0;
+    this.collected = 0;
+    this.totalCollectibles = 0;
+    this.lives = 3;
+    this.isRespawning = false;
+    this.currentCheckpoint = { ...START_POSITION };
+
+    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT + 200);
     this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
-    this.cameras.main.setBackgroundColor('#8ecae6');
 
     this.createBackground();
     this.createPlatforms();
-    this.createKillZones();
-    this.createHazards();
     this.createCollectibles();
+    this.createHazards();
+    this.createEnemy();
     this.createGoal();
     this.createPlayer();
-    this.createHUD();
-    this.setupCollisions();
+    this.createHud();
+    this.createInstructions();
+    this.createColliders();
+    this.createInput();
     this.setupCamera();
-    this.setupInput();
   }
 
   createBackground() {
-    this.add.rectangle(LEVEL_WIDTH / 2, LEVEL_HEIGHT / 2, LEVEL_WIDTH, LEVEL_HEIGHT, 0x8ecae6);
+    this.add.rectangle(LEVEL_WIDTH / 2, LEVEL_HEIGHT / 2, LEVEL_WIDTH, LEVEL_HEIGHT, 0x87ceeb);
+    this.add.rectangle(LEVEL_WIDTH / 2, 700, LEVEL_WIDTH, 140, 0x3a5a40);
 
-    const clouds = [
-      [220, 140], [650, 170], [1100, 130], [1550, 180], [2050, 150], [2480, 125]
-    ];
-
-    clouds.forEach(([x, y]) => {
-      this.add.ellipse(x, y, 120, 50, 0xeaf6ff, 0.95);
-    });
-
-    const tanks = [180, 760, 1380, 1980, 2460];
-    tanks.forEach((x) => {
-      this.add.rectangle(x, 540, 90, 120, 0x5b7c99).setOrigin(0.5, 1);
-      this.add.circle(x, 415, 45, 0x2a9d8f);
-    });
+    for (let i = 0; i < LEVEL_WIDTH; i += 400) {
+      this.add.ellipse(i + 100, 120, 150, 50, 0xffffff, 0.8);
+      this.add.ellipse(i + 180, 140, 130, 45, 0xffffff, 0.7);
+    }
   }
 
   createPlatforms() {
     this.platforms = this.physics.add.staticGroup();
 
-    const groundSegments = [
-      { x: 120, w: 240 },
-      { x: 430, w: 220 },
-      { x: 760, w: 230 },
-      { x: 1080, w: 210 },
-      { x: 1410, w: 230 },
-      { x: 1730, w: 220 },
-      { x: 2050, w: 220 },
-      { x: 2360, w: 220 },
-      { x: 2670, w: 180 }
+    for (let x = 64; x < LEVEL_WIDTH; x += 128) {
+      this.platforms.create(x, GROUND_Y, 'ground').refreshBody();
+    }
+
+    const platformLayout = [
+      { x: 340, y: 585 },
+      { x: 560, y: 530 },
+      { x: 760, y: 470 },
+      { x: 980, y: 520 },
+      { x: 1220, y: 460 },
+      { x: 1470, y: 410 },
+      { x: 1710, y: 470 },
+      { x: 1950, y: 420 },
+      { x: 2180, y: 370 },
+      { x: 2430, y: 430 },
+      { x: 2680, y: 380 }
     ];
 
-    groundSegments.forEach(seg => {
-      const r = this.add.rectangle(seg.x, GROUND_Y, seg.w, 24, 0x5f7487).setOrigin(0.5, 0.5);
-      this.physics.add.existing(r, true);
-      this.platforms.add(r);
-    });
-
-    // Plataformas jugables de verdad
-    const platformData = [
-      { x: 360, y: 565, w: 120 },
-      { x: 560, y: 515, w: 120 },
-      { x: 760, y: 465, w: 120 },
-      { x: 980, y: 515, w: 130 },
-      { x: 1180, y: 465, w: 120 },
-      { x: 1380, y: 415, w: 120 },
-      { x: 1600, y: 470, w: 130 },
-      { x: 1820, y: 420, w: 120 },
-      { x: 2040, y: 370, w: 120 },
-      { x: 2260, y: 430, w: 120 },
-      { x: 2460, y: 380, w: 120 }
-    ];
-
-    platformData.forEach(seg => {
-      const r = this.add.rectangle(seg.x, seg.y, seg.w, 20, 0x7f8c8d).setOrigin(0.5, 0.5);
-      this.physics.add.existing(r, true);
-      this.platforms.add(r);
-    });
-  }
-
-  createKillZones() {
-    this.killZones = this.physics.add.staticGroup();
-
-    const pits = [
-      { x: 280, w: 70 },
-      { x: 600, w: 80 },
-      { x: 920, w: 80 },
-      { x: 1240, w: 80 },
-      { x: 1570, w: 80 },
-      { x: 1890, w: 80 },
-      { x: 2205, w: 80 },
-      { x: 2520, w: 80 }
-    ];
-
-    pits.forEach(pit => {
-      const zone = this.add.rectangle(pit.x, 690, pit.w, 120, 0x8ecae6, 0.01);
-      this.physics.add.existing(zone, true);
-      this.killZones.add(zone);
-    });
-  }
-
-  createHazards() {
-    this.hazards = this.physics.add.staticGroup();
-
-    const hazardData = [
-      { x: 1120, y: 622 },
-      { x: 2110, y: 622 }
-    ];
-
-    hazardData.forEach(h => {
-      const spike = this.add.rectangle(h.x, h.y, 26, 26, 0xe63946);
-      this.physics.add.existing(spike, true);
-      this.hazards.add(spike);
+    platformLayout.forEach((p) => {
+      this.platforms.create(p.x, p.y, 'platform').refreshBody();
     });
   }
 
@@ -135,85 +76,105 @@ export class GameScene extends Phaser.Scene {
       immovable: true
     });
 
-    const items = [
-      { x: 170, y: 595, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 360, y: 530, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 560, y: 480, type: 'valve', points: 20, color: 0xd64541 },
-      { x: 760, y: 430, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 980, y: 480, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 1180, y: 430, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 1380, y: 380, type: 'valve', points: 20, color: 0xd64541 },
-      { x: 1600, y: 435, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 1820, y: 385, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 2040, y: 335, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 2260, y: 395, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 2460, y: 345, type: 'joystick', points: 50, color: 0xf4a261 }
+    const collectiblePositions = [
+      [180, 630],
+      [340, 545],
+      [560, 490],
+      [760, 430],
+      [980, 480],
+      [1220, 420],
+      [1470, 370],
+      [1710, 430],
+      [1950, 380],
+      [2180, 330],
+      [2430, 390],
+      [2680, 340],
+      [2940, 630]
     ];
 
-    items.forEach(item => {
-      let sprite;
+    collectiblePositions.forEach(([x, y]) => {
+      this.collectibles.create(x, y, 'coin');
+    });
 
-      if (item.type === 'drop') {
-        sprite = this.add.circle(item.x, item.y, 10, item.color);
-      } else if (item.type === 'valve') {
-        sprite = this.add.rectangle(item.x, item.y, 18, 18, item.color);
-      } else if (item.type === 'pipe') {
-        sprite = this.add.rectangle(item.x, item.y, 24, 12, item.color);
-      } else {
-        sprite = this.add.rectangle(item.x, item.y, 20, 20, item.color);
-      }
+    this.totalCollectibles = this.collectibles.countActive(true);
+  }
 
-      this.physics.add.existing(sprite);
-      sprite.body.setAllowGravity(false);
-      sprite.body.setImmovable(true);
-      sprite.points = item.points;
-      this.collectibles.add(sprite);
+  createHazards() {
+    this.hazards = this.physics.add.staticGroup();
+    [
+      { x: 880, y: 656 },
+      { x: 1600, y: 656 },
+      { x: 2310, y: 656 }
+    ].forEach((trap) => {
+      this.hazards.create(trap.x, trap.y, 'spike').refreshBody();
     });
   }
 
+  createEnemy() {
+    this.enemies = this.physics.add.group();
+
+    const enemy = this.enemies.create(2050, 640, 'enemy');
+    enemy.setBounce(0);
+    enemy.setCollideWorldBounds(false);
+    enemy.setVelocityX(-90);
+    enemy.body.setAllowGravity(true);
+    enemy.minX = 1940;
+    enemy.maxX = 2220;
+  }
+
   createGoal() {
-    this.goal = this.add.rectangle(2720, 585, 20, 90, 0x2ecc71);
-    this.physics.add.existing(this.goal);
-    this.goal.body.setAllowGravity(false);
-    this.goal.body.setImmovable(true);
-    this.goal.body.setSize(20, 90);
+    this.goal = this.physics.add.staticImage(3070, 620, 'goal');
+    this.goal.body.setSize(56, 100);
   }
 
   createPlayer() {
-    this.player = new Player(this, 90, 590);
-
-    this.add.existing(this.player);
-    this.physics.add.existing(this.player);
-
-    this.player.body.setCollideWorldBounds(true);
-    this.player.body.setSize(28, 36);
-    this.player.body.setOffset(0, 0);
-    this.player.body.setGravityY(900);
-    this.player.body.setMaxVelocity(320, 900);
-    this.player.body.setBounce(0);
+    this.player = this.physics.add.sprite(START_POSITION.x, START_POSITION.y, 'player');
+    this.player.setCollideWorldBounds(false);
+    this.player.setBounce(0);
+    this.player.setMaxVelocity(300, 900);
+    this.player.body.setSize(28, 44);
+    this.player.body.setOffset(2, 2);
   }
 
-  createHUD() {
-    this.scoreText = this.add.text(20, 20, `PUNTAJE: ${this.score}`, {
-      fontFamily: 'monospace',
-      fontSize: '28px',
-      color: '#ffffff'
-    }).setScrollFactor(0);
-
-    this.lifeText = this.add.text(20, 55, 'VIDA: 1', {
-      fontFamily: 'monospace',
-      fontSize: '28px',
-      color: '#ffb4a2'
-    }).setScrollFactor(0);
+  createHud() {
+    const textStyle = { fontSize: '26px', color: '#ffffff', fontStyle: 'bold' };
+    this.scoreText = this.add.text(20, 16, 'Puntaje: 0', textStyle).setScrollFactor(0);
+    this.collectText = this.add.text(20, 48, `Objetos: 0/${this.totalCollectibles}`, textStyle).setScrollFactor(0);
+    this.livesText = this.add.text(20, 80, `Vidas: ${this.lives}`, textStyle).setScrollFactor(0);
   }
 
-  setupCamera() {
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-    this.cameras.main.setDeadzone(120, 80);
-    this.cameras.main.setZoom(1);
+  createInstructions() {
+    this.instructionsText = this.add
+      .text(640, 120, 'Recolectá objetos y llegá a la bandera', {
+        fontSize: '30px',
+        color: '#1d3557',
+        backgroundColor: '#ffffffcc',
+        padding: { x: 14, y: 8 }
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    this.time.delayedCall(3000, () => {
+      this.tweens.add({
+        targets: this.instructionsText,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => this.instructionsText.destroy()
+      });
+    });
   }
 
-  setupInput() {
+  createColliders() {
+    this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.collider(this.enemies, this.platforms);
+
+    this.physics.add.overlap(this.player, this.collectibles, this.collectItem, null, this);
+    this.physics.add.overlap(this.player, this.hazards, () => this.loseLife('trap'), null, this);
+    this.physics.add.overlap(this.player, this.enemies, () => this.loseLife('enemy'), null, this);
+    this.physics.add.overlap(this.player, this.goal, this.winGame, null, this);
+  }
+
+  createInput() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys({
       a: Phaser.Input.Keyboard.KeyCodes.A,
@@ -223,36 +184,70 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  setupCollisions() {
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.overlap(this.player, this.collectibles, this.collectItem, null, this);
-    this.physics.add.overlap(this.player, this.hazards, this.hitHazard, null, this);
-    this.physics.add.overlap(this.player, this.killZones, this.hitHazard, null, this);
-    this.physics.add.overlap(this.player, this.goal, this.reachGoal, null, this);
+  setupCamera() {
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.setDeadzone(160, 100);
   }
 
-  collectItem(player, item) {
-    if (!item.active || this.gameEnded) return;
+  collectItem(_, item) {
+    if (!item.active) {
+      return;
+    }
 
-    this.score += item.points || 10;
-    this.scoreText.setText(`PUNTAJE: ${this.score}`);
-    item.destroy();
+    item.disableBody(true, true);
+    this.score += 10;
+    this.collected += 1;
+
+    this.scoreText.setText(`Puntaje: ${this.score}`);
+    this.collectText.setText(`Objetos: ${this.collected}/${this.totalCollectibles}`);
   }
 
-  hitHazard() {
-    if (this.gameEnded) return;
-    this.gameEnded = true;
-    this.scene.start('game-over', { score: this.score });
+  loseLife(reason) {
+    if (this.isRespawning) {
+      return;
+    }
+
+    this.isRespawning = true;
+    this.lives -= 1;
+    this.livesText.setText(`Vidas: ${this.lives}`);
+
+    if (this.lives <= 0) {
+      this.scene.start('game-over', {
+        score: this.score,
+        collected: this.collected,
+        totalCollectibles: this.totalCollectibles
+      });
+      return;
+    }
+
+    this.player.setVelocity(0, 0);
+    this.player.setPosition(this.currentCheckpoint.x, this.currentCheckpoint.y);
+    this.cameras.main.flash(180, 255, 120, 120);
+
+    this.time.delayedCall(500, () => {
+      this.isRespawning = false;
+    });
+
+    if (reason === 'fall') {
+      this.player.y = this.currentCheckpoint.y;
+    }
   }
 
-  reachGoal() {
-    if (this.gameEnded) return;
-    this.gameEnded = true;
-    this.scene.start('victory', { score: this.score });
+  winGame() {
+    this.scene.start('win', {
+      score: this.score,
+      collected: this.collected,
+      totalCollectibles: this.totalCollectibles,
+      lives: this.lives
+    });
   }
 
   update() {
-    if (!this.player || this.gameEnded) return;
+    this.updateEnemyPatrol();
+
+    if (!this.player || this.isRespawning) {
+      return;
+    }
 
     const left = this.cursors.left.isDown || this.keys.a.isDown;
     const right = this.cursors.right.isDown || this.keys.d.isDown;
@@ -262,21 +257,52 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.JustDown(this.keys.space);
 
     if (left) {
-      this.player.body.setVelocityX(-250);
+      this.player.setVelocityX(-240);
       this.player.setFlipX(true);
     } else if (right) {
-      this.player.body.setVelocityX(250);
+      this.player.setVelocityX(240);
       this.player.setFlipX(false);
     } else {
-      this.player.body.setVelocityX(0);
+      this.player.setVelocityX(0);
     }
 
     if (jumpPressed && this.player.body.blocked.down) {
-      this.player.body.setVelocityY(-600);
+      this.player.setVelocityY(-560);
     }
 
-    if (this.player.y > LEVEL_HEIGHT + 40) {
-      this.hitHazard();
+    this.updateCheckpoint();
+
+    if (this.player.y > FALL_LIMIT) {
+      this.loseLife('fall');
     }
+  }
+
+  updateEnemyPatrol() {
+    this.enemies.children.iterate((enemy) => {
+      if (!enemy || !enemy.body) {
+        return;
+      }
+
+      if (enemy.x <= enemy.minX) {
+        enemy.setVelocityX(90);
+      } else if (enemy.x >= enemy.maxX) {
+        enemy.setVelocityX(-90);
+      }
+    });
+  }
+
+  updateCheckpoint() {
+    const checkpoints = [
+      { x: 120, y: 560 },
+      { x: 1000, y: 440 },
+      { x: 2000, y: 340 },
+      { x: 2800, y: 340 }
+    ];
+
+    checkpoints.forEach((checkpoint) => {
+      if (this.player.x >= checkpoint.x) {
+        this.currentCheckpoint = checkpoint;
+      }
+    });
   }
 }

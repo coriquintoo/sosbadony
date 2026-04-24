@@ -1,23 +1,37 @@
-# Dony y la Planta Potabilizadora
+# Juego básico de plataformas con Phaser 3
 
-Juego 2D de plataformas hecho con **Phaser 3**, con estética retro pixel-art.
+## Estructura recomendada
 
-## Ejecutar
-
-Como es un proyecto web estático, solo necesitás servirlo con cualquier servidor local:
-
-```bash
-python3 -m http.server 8000
+```txt
+.
+├── index.html
+├── package.json
+└── src
+    ├── main.js
+    └── scenes
+        ├── BootScene.js
+        ├── MenuScene.js
+        ├── GameScene.js
+        ├── GameOverScene.js
+        └── WinScene.js
 ```
 
-Luego abrir:
+## Instalar y correr
 
-- http://localhost:8000
+```bash
+npm install
+npm run dev
+```
 
-## Estructura
+Abrí el navegador en la URL que imprime Vite (por defecto `http://localhost:5173`).
 
-- `index.html`: punto de entrada y carga de Phaser.
-- `src/config/gameConfig.js`: configuración global del juego.
-- `src/scenes/*`: escenas (inicio, juego, fin de nivel, game over y victoria).
-- `src/objects/Player.js`: personaje principal Dony y animaciones.
-- `src/systems/SoundManager.js`: música y efectos simples con WebAudio.
+## Controles
+
+- Mover: flechas izquierda/derecha o A/D.
+- Saltar: flecha arriba, W o espacio.
+
+## Notas
+
+- Sin assets externos obligatorios: todo se genera con gráficos simples de Phaser.
+- Escena de Game Over al perder todas las vidas.
+- Escena de Victoria al llegar a la meta.
