@@ -1,50 +1,35 @@
 # Juego de plataformas básico (Phaser 3)
 
-Proyecto simple estilo Mario Bros, hecho con Phaser 3 + JavaScript, sin assets externos obligatorios.
+Proyecto estilo Mario hecho en **HTML + JavaScript simple**, cargando Phaser por CDN (sin Vite, sin bundlers).
 
-## Requisitos
+## Cómo correrlo
 
-- Node.js 18+
-- npm
-
-## Instalar
+1. Serví la carpeta del proyecto:
 
 ```bash
-npm install
+npx serve
 ```
 
-## Ejecutar en desarrollo
+2. Abrí:
 
-```bash
-npm run dev
-```
+- http://localhost:3000
 
-Abrí la URL local que te muestra Vite (normalmente `http://localhost:5173`).
-
-## Estructura recomendada
+## Estructura actual
 
 ```text
 .
 ├── index.html
-├── package.json
 └── src
-    ├── main.js
-    └── scenes
-        ├── PreloadScene.js
-        ├── MenuScene.js
-        ├── GameScene.js
-        ├── GameOverScene.js
-        └── WinScene.js
+    └── main.js
 ```
 
-## Mecánicas implementadas
+## Mecánicas incluidas
 
-- Movimiento: flechas o A/D.
-- Salto: espacio, flecha arriba o W.
-- Gravedad y colisiones con suelo/plataformas.
-- Objetos recolectables con contador y puntaje.
+- Movimiento lateral con flechas o A/D.
+- Salto con espacio, W o flecha arriba.
+- Colisiones con plataformas.
+- Monedas/objetos coleccionables con HUD.
 - Enemigos simples.
-- Vidas (3) con respawn por caída o contacto con enemigo.
-- Checkpoints durante el nivel.
-- Pantallas de Victoria y Game Over.
-- Cámara que sigue al jugador y límites del mundo.
+- Vidas y respawn al tocar enemigo o caer fuera del mapa.
+- Game Over al quedarse sin vidas.
+- Victoria al llegar a la meta.
