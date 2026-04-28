@@ -332,6 +332,12 @@ class WinScene extends Phaser.Scene {
   }
 }
 
+window.PreloadScene = PreloadScene;
+window.MenuScene = MenuScene;
+window.GameScene = GameScene;
+window.GameOverScene = GameOverScene;
+window.WinScene = WinScene;
+
 const config = {
   type: Phaser.AUTO,
   parent: 'game',
@@ -352,4 +358,6 @@ const config = {
   scene: [PreloadScene, MenuScene, GameScene, GameOverScene, WinScene]
 };
 
-new Phaser.Game(config);
+window.addEventListener('load', () => {
+  new Phaser.Game(config);
+});
