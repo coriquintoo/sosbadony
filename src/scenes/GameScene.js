@@ -1,282 +1,251 @@
-import { Player } from '../objects/Player.js';
+import Phaser from 'phaser';
 
-const LEVEL_WIDTH = 2800;
-const LEVEL_HEIGHT = 720;
-const GROUND_Y = 640;
+const WORLD_WIDTH = 2800;
+const WORLD_HEIGHT = 540;
+const START_POINT = { x: 120, y: 430 };
 
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('game');
   }
 
-  init(data) {
-    this.score = data?.score ?? 0;
-    this.gameEnded = false;
-  }
-
   create() {
-    this.physics.world.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
-    this.cameras.main.setBounds(0, 0, LEVEL_WIDTH, LEVEL_HEIGHT);
-    this.cameras.main.setBackgroundColor('#8ecae6');
+    this.score = 0;
+    this.collected = 0;
+    this.lives = 3;
+    this.isRespawning = false;
+    this.currentCheckpoint = { ...START_POINT };
 
-    this.createBackground();
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.physics.world.setBoundsCollision(true, true, true, false);
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    this.add.rectangle(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, WORLD_WIDTH, WORLD_HEIGHT, 0x87ceeb);
+    this.add.rectangle(WORLD_WIDTH / 2, WORLD_HEIGHT - 30, WORLD_WIDTH, 60, 0x7fb069);
+
     this.createPlatforms();
-    this.createKillZones();
-    this.createHazards();
-    this.createCollectibles();
-    this.createGoal();
     this.createPlayer();
+    this.createCollectibles();
+    this.createEnemies();
+    this.createGoal();
     this.createHUD();
-    this.setupCollisions();
-    this.setupCamera();
-    this.setupInput();
-  }
+    this.createInputs();
+    this.createColliders();
 
-  createBackground() {
-    this.add.rectangle(LEVEL_WIDTH / 2, LEVEL_HEIGHT / 2, LEVEL_WIDTH, LEVEL_HEIGHT, 0x8ecae6);
-
-    const clouds = [
-      [220, 140], [650, 170], [1100, 130], [1550, 180], [2050, 150], [2480, 125]
-    ];
-
-    clouds.forEach(([x, y]) => {
-      this.add.ellipse(x, y, 120, 50, 0xeaf6ff, 0.95);
-    });
-
-    const tanks = [180, 760, 1380, 1980, 2460];
-    tanks.forEach((x) => {
-      this.add.rectangle(x, 540, 90, 120, 0x5b7c99).setOrigin(0.5, 1);
-      this.add.circle(x, 415, 45, 0x2a9d8f);
-    });
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
 
   createPlatforms() {
     this.platforms = this.physics.add.staticGroup();
 
     const groundSegments = [
-      { x: 120, w: 240 },
-      { x: 430, w: 220 },
-      { x: 760, w: 230 },
-      { x: 1080, w: 210 },
-      { x: 1410, w: 230 },
-      { x: 1730, w: 220 },
-      { x: 2050, w: 220 },
-      { x: 2360, w: 220 },
-      { x: 2670, w: 180 }
+      [250, 500, 500, 40],
+      [820, 500, 460, 40],
+      [1390, 500, 460, 40],
+      [1960, 500, 460, 40],
+      [2530, 500, 460, 40]
     ];
 
-    groundSegments.forEach(seg => {
-      const r = this.add.rectangle(seg.x, GROUND_Y, seg.w, 24, 0x5f7487).setOrigin(0.5, 0.5);
-      this.physics.add.existing(r, true);
-      this.platforms.add(r);
-    });
-
-    // Plataformas jugables de verdad
-    const platformData = [
-      { x: 360, y: 565, w: 120 },
-      { x: 560, y: 515, w: 120 },
-      { x: 760, y: 465, w: 120 },
-      { x: 980, y: 515, w: 130 },
-      { x: 1180, y: 465, w: 120 },
-      { x: 1380, y: 415, w: 120 },
-      { x: 1600, y: 470, w: 130 },
-      { x: 1820, y: 420, w: 120 },
-      { x: 2040, y: 370, w: 120 },
-      { x: 2260, y: 430, w: 120 },
-      { x: 2460, y: 380, w: 120 }
+    const elevatedPlatforms = [
+      [430, 390, 170, 24],
+      [640, 320, 170, 24],
+      [890, 400, 170, 24],
+      [1120, 330, 170, 24],
+      [1360, 260, 170, 24],
+      [1610, 340, 170, 24],
+      [1830, 280, 170, 24],
+      [2060, 360, 170, 24],
+      [2280, 290, 170, 24],
+      [2490, 230, 170, 24]
     ];
 
-    platformData.forEach(seg => {
-      const r = this.add.rectangle(seg.x, seg.y, seg.w, 20, 0x7f8c8d).setOrigin(0.5, 0.5);
-      this.physics.add.existing(r, true);
-      this.platforms.add(r);
+    [...groundSegments, ...elevatedPlatforms].forEach(([x, y, w, h]) => {
+      const platform = this.add.rectangle(x, y, w, h, 0x5e548e).setOrigin(0.5);
+      this.physics.add.existing(platform, true);
+      this.platforms.add(platform);
     });
   }
 
-  createKillZones() {
-    this.killZones = this.physics.add.staticGroup();
-
-    const pits = [
-      { x: 280, w: 70 },
-      { x: 600, w: 80 },
-      { x: 920, w: 80 },
-      { x: 1240, w: 80 },
-      { x: 1570, w: 80 },
-      { x: 1890, w: 80 },
-      { x: 2205, w: 80 },
-      { x: 2520, w: 80 }
-    ];
-
-    pits.forEach(pit => {
-      const zone = this.add.rectangle(pit.x, 690, pit.w, 120, 0x8ecae6, 0.01);
-      this.physics.add.existing(zone, true);
-      this.killZones.add(zone);
-    });
-  }
-
-  createHazards() {
-    this.hazards = this.physics.add.staticGroup();
-
-    const hazardData = [
-      { x: 1120, y: 622 },
-      { x: 2110, y: 622 }
-    ];
-
-    hazardData.forEach(h => {
-      const spike = this.add.rectangle(h.x, h.y, 26, 26, 0xe63946);
-      this.physics.add.existing(spike, true);
-      this.hazards.add(spike);
-    });
+  createPlayer() {
+    this.player = this.physics.add.sprite(START_POINT.x, START_POINT.y, 'player');
+    this.player.setCollideWorldBounds(true);
+    this.player.setBounce(0);
+    this.player.body.setSize(26, 40);
+    this.player.body.setOffset(3, 2);
+    this.player.setDepth(2);
   }
 
   createCollectibles() {
-    this.collectibles = this.physics.add.group({
+    this.collectibles = this.physics.add.staticGroup();
+
+    const collectiblePositions = [
+      [270, 455], [430, 350], [640, 280], [890, 360], [1120, 290],
+      [1360, 220], [1610, 300], [1830, 240], [2060, 320], [2280, 250],
+      [2490, 190], [2660, 455]
+    ];
+
+    collectiblePositions.forEach(([x, y]) => {
+      this.collectibles.create(x, y, 'collectible');
+    });
+
+    this.totalCollectibles = collectiblePositions.length;
+  }
+
+  createEnemies() {
+    this.enemies = this.physics.add.group({
       allowGravity: false,
       immovable: true
     });
 
-    const items = [
-      { x: 170, y: 595, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 360, y: 530, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 560, y: 480, type: 'valve', points: 20, color: 0xd64541 },
-      { x: 760, y: 430, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 980, y: 480, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 1180, y: 430, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 1380, y: 380, type: 'valve', points: 20, color: 0xd64541 },
-      { x: 1600, y: 435, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 1820, y: 385, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 2040, y: 335, type: 'drop', points: 10, color: 0x3dbbff },
-      { x: 2260, y: 395, type: 'pipe', points: 15, color: 0x9aa0a6 },
-      { x: 2460, y: 345, type: 'joystick', points: 50, color: 0xf4a261 }
+    const enemyPositions = [
+      [980, 468],
+      [1710, 468],
+      [2380, 468]
     ];
 
-    items.forEach(item => {
-      let sprite;
-
-      if (item.type === 'drop') {
-        sprite = this.add.circle(item.x, item.y, 10, item.color);
-      } else if (item.type === 'valve') {
-        sprite = this.add.rectangle(item.x, item.y, 18, 18, item.color);
-      } else if (item.type === 'pipe') {
-        sprite = this.add.rectangle(item.x, item.y, 24, 12, item.color);
-      } else {
-        sprite = this.add.rectangle(item.x, item.y, 20, 20, item.color);
-      }
-
-      this.physics.add.existing(sprite);
-      sprite.body.setAllowGravity(false);
-      sprite.body.setImmovable(true);
-      sprite.points = item.points;
-      this.collectibles.add(sprite);
+    enemyPositions.forEach(([x, y]) => {
+      const enemy = this.enemies.create(x, y, 'enemy');
+      enemy.body.setSize(34, 24);
     });
   }
 
   createGoal() {
-    this.goal = this.add.rectangle(2720, 585, 20, 90, 0x2ecc71);
-    this.physics.add.existing(this.goal);
-    this.goal.body.setAllowGravity(false);
-    this.goal.body.setImmovable(true);
-    this.goal.body.setSize(20, 90);
-  }
-
-  createPlayer() {
-    this.player = new Player(this, 90, 590);
-
-    this.add.existing(this.player);
-    this.physics.add.existing(this.player);
-
-    this.player.body.setCollideWorldBounds(true);
-    this.player.body.setSize(28, 36);
-    this.player.body.setOffset(0, 0);
-    this.player.body.setGravityY(900);
-    this.player.body.setMaxVelocity(320, 900);
-    this.player.body.setBounce(0);
+    this.goal = this.physics.add.staticSprite(2725, 430, 'goal');
+    this.goal.body.setSize(58, 90);
   }
 
   createHUD() {
-    this.scoreText = this.add.text(20, 20, `PUNTAJE: ${this.score}`, {
-      fontFamily: 'monospace',
-      fontSize: '28px',
-      color: '#ffffff'
-    }).setScrollFactor(0);
+    this.scoreText = this.add.text(16, 14, 'Puntaje: 0', { fontSize: '24px', color: '#ffffff' }).setScrollFactor(0);
+    this.collectText = this.add
+      .text(16, 45, `Objetos: 0/${this.totalCollectibles}`, { fontSize: '24px', color: '#ffffff' })
+      .setScrollFactor(0);
+    this.livesText = this.add.text(16, 76, `Vidas: ${this.lives}`, { fontSize: '24px', color: '#ffcad4' }).setScrollFactor(0);
 
-    this.lifeText = this.add.text(20, 55, 'VIDA: 1', {
-      fontFamily: 'monospace',
-      fontSize: '28px',
-      color: '#ffb4a2'
-    }).setScrollFactor(0);
-  }
+    this.helpText = this.add
+      .text(16, 110, 'Tip: Evitá enemigos y caídas. Llegá a la bandera.', {
+        fontSize: '18px',
+        color: '#1d3557',
+        backgroundColor: '#f1faee',
+        padding: { x: 6, y: 4 }
+      })
+      .setScrollFactor(0);
 
-  setupCamera() {
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-    this.cameras.main.setDeadzone(120, 80);
-    this.cameras.main.setZoom(1);
-  }
-
-  setupInput() {
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys({
-      a: Phaser.Input.Keyboard.KeyCodes.A,
-      d: Phaser.Input.Keyboard.KeyCodes.D,
-      w: Phaser.Input.Keyboard.KeyCodes.W,
-      space: Phaser.Input.Keyboard.KeyCodes.SPACE
+    this.time.delayedCall(5000, () => {
+      this.helpText.setVisible(false);
     });
   }
 
-  setupCollisions() {
+  createInputs() {
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.keys = this.input.keyboard.addKeys({
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      jump: Phaser.Input.Keyboard.KeyCodes.SPACE
+    });
+  }
+
+  createColliders() {
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.overlap(this.player, this.collectibles, this.collectItem, null, this);
-    this.physics.add.overlap(this.player, this.hazards, this.hitHazard, null, this);
-    this.physics.add.overlap(this.player, this.killZones, this.hitHazard, null, this);
+    this.physics.add.overlap(this.player, this.enemies, this.hitDanger, null, this);
     this.physics.add.overlap(this.player, this.goal, this.reachGoal, null, this);
   }
 
-  collectItem(player, item) {
-    if (!item.active || this.gameEnded) return;
-
-    this.score += item.points || 10;
-    this.scoreText.setText(`PUNTAJE: ${this.score}`);
+  collectItem(_, item) {
     item.destroy();
+    this.collected += 1;
+    this.score += 100;
+    this.scoreText.setText(`Puntaje: ${this.score}`);
+    this.collectText.setText(`Objetos: ${this.collected}/${this.totalCollectibles}`);
   }
 
-  hitHazard() {
-    if (this.gameEnded) return;
-    this.gameEnded = true;
-    this.scene.start('game-over', { score: this.score });
+  hitDanger() {
+    this.handlePlayerDeath();
+  }
+
+  handlePlayerDeath() {
+    if (this.isRespawning) {
+      return;
+    }
+
+    this.isRespawning = true;
+    this.lives -= 1;
+    this.livesText.setText(`Vidas: ${this.lives}`);
+
+    if (this.lives <= 0) {
+      this.scene.start('gameover', {
+        score: this.score,
+        collected: this.collected,
+        total: this.totalCollectibles
+      });
+      return;
+    }
+
+    this.player.setVelocity(0, 0);
+    this.player.setPosition(this.currentCheckpoint.x, this.currentCheckpoint.y);
+
+    this.time.delayedCall(700, () => {
+      this.isRespawning = false;
+    });
+  }
+
+  isPlayerOutOfBounds() {
+    const bottomBound = this.physics.world.bounds.height;
+    const playerBottom = this.player.y + this.player.displayHeight * 0.5;
+    return playerBottom > bottomBound;
+  }
+
+  updateCheckpoint() {
+    if (this.player.x > 1100 && this.currentCheckpoint.x < 1100) {
+      this.currentCheckpoint = { x: 1160, y: 260 };
+    }
+
+    if (this.player.x > 2100 && this.currentCheckpoint.x < 2100) {
+      this.currentCheckpoint = { x: 2140, y: 320 };
+    }
   }
 
   reachGoal() {
-    if (this.gameEnded) return;
-    this.gameEnded = true;
-    this.scene.start('victory', { score: this.score });
+    this.scene.start('win', {
+      score: this.score,
+      collected: this.collected,
+      total: this.totalCollectibles,
+      lives: this.lives
+    });
   }
 
   update() {
-    if (!this.player || this.gameEnded) return;
+    if (this.scene.isActive('gameover') || this.scene.isActive('win')) {
+      return;
+    }
 
-    const left = this.cursors.left.isDown || this.keys.a.isDown;
-    const right = this.cursors.right.isDown || this.keys.d.isDown;
+    const left = this.cursors.left.isDown || this.keys.left.isDown;
+    const right = this.cursors.right.isDown || this.keys.right.isDown;
     const jumpPressed =
       Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
-      Phaser.Input.Keyboard.JustDown(this.keys.w) ||
-      Phaser.Input.Keyboard.JustDown(this.keys.space);
+      Phaser.Input.Keyboard.JustDown(this.keys.up) ||
+      Phaser.Input.Keyboard.JustDown(this.keys.jump);
 
     if (left) {
-      this.player.body.setVelocityX(-250);
+      this.player.setVelocityX(-230);
       this.player.setFlipX(true);
     } else if (right) {
-      this.player.body.setVelocityX(250);
+      this.player.setVelocityX(230);
       this.player.setFlipX(false);
     } else {
-      this.player.body.setVelocityX(0);
+      this.player.setVelocityX(0);
     }
 
-    if (jumpPressed && this.player.body.blocked.down) {
-      this.player.body.setVelocityY(-600);
+    const canJump = this.player.body.blocked.down || this.player.body.touching.down;
+    if (jumpPressed && canJump && !this.isRespawning) {
+      this.player.setVelocityY(-560);
     }
 
-    if (this.player.y > LEVEL_HEIGHT + 40) {
-      this.hitHazard();
+    this.updateCheckpoint();
+
+    if (this.isPlayerOutOfBounds()) {
+      this.handlePlayerDeath();
     }
   }
 }
