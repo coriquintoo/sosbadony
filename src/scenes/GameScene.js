@@ -13,7 +13,7 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.collected = 0;
     this.lives = 3;
-    this.isRespawning = false;
+    this.isPlayerDying = false;
     this.currentCheckpoint = { ...START_POINT };
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -165,13 +165,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePlayerDeath() {
-    if (this.isRespawning) {
+    if (this.isPlayerDying) {
       return;
     }
 
-    this.isRespawning = true;
+    this.isPlayerDying = true;
     this.lives -= 1;
     this.livesText.setText(`Vidas: ${this.lives}`);
+    this.player.setVelocity(0, 0);
+    this.player.body.enable = false;
 
     if (this.lives <= 0) {
       this.scene.start('gameover', {
@@ -182,18 +184,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.player.setVelocity(0, 0);
-    this.player.setPosition(this.currentCheckpoint.x, this.currentCheckpoint.y);
-
-    this.time.delayedCall(700, () => {
-      this.isRespawning = false;
+    this.time.delayedCall(450, () => {
+      this.player.setPosition(this.currentCheckpoint.x, this.currentCheckpoint.y);
+      this.player.body.enable = true;
+      this.player.setVelocity(0, 0);
+      this.isPlayerDying = false;
     });
-  }
-
-  isPlayerOutOfBounds() {
-    const bottomBound = this.physics.world.bounds.height;
-    const playerBottom = this.player.y + this.player.displayHeight * 0.5;
-    return playerBottom > bottomBound;
   }
 
   updateCheckpoint() {
@@ -227,6 +223,15 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.JustDown(this.keys.up) ||
       Phaser.Input.Keyboard.JustDown(this.keys.jump);
 
+    if (this.player.y > this.physics.world.bounds.height + 100) {
+      this.handlePlayerDeath();
+      return;
+    }
+
+    if (this.isPlayerDying) {
+      return;
+    }
+
     if (left) {
       this.player.setVelocityX(-230);
       this.player.setFlipX(true);
@@ -238,14 +243,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     const canJump = this.player.body.blocked.down || this.player.body.touching.down;
-    if (jumpPressed && canJump && !this.isRespawning) {
+    if (jumpPressed && canJump && !this.isPlayerDying) {
       this.player.setVelocityY(-560);
     }
 
     this.updateCheckpoint();
-
-    if (this.isPlayerOutOfBounds()) {
-      this.handlePlayerDeath();
-    }
   }
 }
