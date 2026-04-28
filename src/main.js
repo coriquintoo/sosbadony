@@ -2,6 +2,21 @@ const WORLD_WIDTH = 2800;
 const WORLD_HEIGHT = 540;
 const START_POINT = { x: 120, y: 430 };
 
+function showFatalError(message) {
+  const root = document.getElementById('game');
+  if (!root) return;
+  root.innerHTML = '';
+  const box = document.createElement('div');
+  box.style.color = '#fff';
+  box.style.background = '#7f1d1d';
+  box.style.padding = '12px';
+  box.style.borderRadius = '8px';
+  box.style.maxWidth = '700px';
+  box.style.fontFamily = 'Arial, sans-serif';
+  box.textContent = message;
+  root.appendChild(box);
+}
+
 class PreloadScene extends Phaser.Scene {
   constructor() {
     super('preload');
@@ -207,6 +222,7 @@ class GameScene extends Phaser.Scene {
 
   handlePlayerDeath() {
     if (this.isPlayerDying) return;
+    if (!this.player || !this.player.body) return;
 
     this.isPlayerDying = true;
     this.lives -= 1;
@@ -247,6 +263,7 @@ class GameScene extends Phaser.Scene {
 
   update() {
     if (this.scene.isActive('gameover') || this.scene.isActive('win')) return;
+    if (!this.player || !this.player.body) return;
 
     if (this.player.y > this.physics.world.bounds.height + 100) {
       this.handlePlayerDeath();
@@ -359,5 +376,15 @@ const config = {
 };
 
 window.addEventListener('load', () => {
-  new Phaser.Game(config);
+  if (!window.Phaser) {
+    showFatalError('No se pudo cargar Phaser desde CDN. Revisá conexión/bloqueadores y recargá la página.');
+    return;
+  }
+
+  try {
+    new Phaser.Game(config);
+  } catch (error) {
+    showFatalError(`El juego se cayó al iniciar: ${error?.message || error}`);
+    console.error(error);
+  }
 });
