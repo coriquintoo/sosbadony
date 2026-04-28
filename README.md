@@ -1,23 +1,50 @@
-# Dony y la Planta Potabilizadora
+# Juego de plataformas básico (Phaser 3)
 
-Juego 2D de plataformas hecho con **Phaser 3**, con estética retro pixel-art.
+Proyecto simple estilo Mario Bros, hecho con Phaser 3 + JavaScript, sin assets externos obligatorios.
 
-## Ejecutar
+## Requisitos
 
-Como es un proyecto web estático, solo necesitás servirlo con cualquier servidor local:
+- Node.js 18+
+- npm
+
+## Instalar
 
 ```bash
-python3 -m http.server 8000
+npm install
 ```
 
-Luego abrir:
+## Ejecutar en desarrollo
 
-- http://localhost:8000
+```bash
+npm run dev
+```
 
-## Estructura
+Abrí la URL local que te muestra Vite (normalmente `http://localhost:5173`).
 
-- `index.html`: punto de entrada y carga de Phaser.
-- `src/config/gameConfig.js`: configuración global del juego.
-- `src/scenes/*`: escenas (inicio, juego, fin de nivel, game over y victoria).
-- `src/objects/Player.js`: personaje principal Dony y animaciones.
-- `src/systems/SoundManager.js`: música y efectos simples con WebAudio.
+## Estructura recomendada
+
+```text
+.
+├── index.html
+├── package.json
+└── src
+    ├── main.js
+    └── scenes
+        ├── PreloadScene.js
+        ├── MenuScene.js
+        ├── GameScene.js
+        ├── GameOverScene.js
+        └── WinScene.js
+```
+
+## Mecánicas implementadas
+
+- Movimiento: flechas o A/D.
+- Salto: espacio, flecha arriba o W.
+- Gravedad y colisiones con suelo/plataformas.
+- Objetos recolectables con contador y puntaje.
+- Enemigos simples.
+- Vidas (3) con respawn por caída o contacto con enemigo.
+- Checkpoints durante el nivel.
+- Pantallas de Victoria y Game Over.
+- Cámara que sigue al jugador y límites del mundo.
