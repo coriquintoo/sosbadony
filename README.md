@@ -14,6 +14,12 @@ npx serve
 
 - http://localhost:3000
 
+## Smoke test rápido (opcional)
+
+```bash
+./scripts/smoke_test.sh
+```
+
 ## Estructura actual
 
 ```text
